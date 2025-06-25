@@ -1,0 +1,92 @@
+import pandas as pd
+
+# Dictionnaire des catégories par mots-clés
+CATEGORIES = {
+    "Carrefour": "Alimentation",
+    "Uber": "Transport",
+    "Salaire": "Revenus",
+    "Amazon": "Shopping",
+    "Electricité": "Factures"
+}
+
+def trouver_categorie(libelle):
+    """Retourne la catégorie selon le libellé"""
+    for mot, categorie in CATEGORIES.items():
+        if mot.lower() in libelle.lower():
+            return categorie
+    return "Autre"
+
+def charger_donnees(fichier):
+    """Charge les données du fichier CSV"""
+    df = pd.read_csv(fichier)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Categorie"] = df["Libelle"].apply(trouver_categorie)
+    return df
+
+def resume_par_categorie(df):
+    """Affiche les totaux par catégorie"""
+    print("\n--- Dépenses par catégorie ---")
+    print(df.groupby("Categorie")["Montant"].sum())
+
+def resume_par_mois(df):
+    """Affiche les totaux par mois"""
+    df["Mois"] = df["Date"].dt.to_period("M")
+    print("\n--- Dépenses par mois ---")
+    print(df.groupby("Mois")["Montant"].sum())
+
+def filtrer_par_periode(df, date_debut, date_fin):
+    """Retourne les dépenses entre deux dates"""
+    masque = (df["Date"] >= date_debut) & (df["Date"] <= date_fin)
+    return df.loc[masque]
+
+def rechercher_depense(df, mot_cle):
+    """Filtre les dépenses contenant un mot-clé"""
+    return df[df["Libelle"].str.contains(mot_cle, case=False)]
+
+def ajouter_depense(df, date, libelle, montant):
+    """Ajoute une nouvelle dépense au DataFrame"""
+    nouvelle_depense = pd.DataFrame({
+        "Date": [pd.to_datetime(date)],
+        "Libelle": [libelle],
+        "Montant": [montant],
+        "Categorie": [trouver_categorie(libelle)]
+    })
+    return pd.concat([df, nouvelle_depense], ignore_index=True)
+
+def enregistrer(df, fichier):
+    """Sauvegarde les dépenses dans le fichier CSV"""
+    df[["Date", "Libelle", "Montant"]].to_csv(fichier, index=False)
+    print(f"\n✅ Données enregistrées dans {fichier}")
+
+def solde_global(df):
+    """Calcule le solde total"""
+    return df["Montant"].sum()
+
+if __name__ == "__main__":
+    chemin_csv = "depenses.csv"
+    df = charger_donnees(chemin_csv)
+
+    print("\nBienvenue dans votre Gestionnaire de Budget")
+    
+    resume_par_categorie(df)
+    resume_par_mois(df)
+
+    print(f"\n💰 Solde global : {solde_global(df)} MAD")
+
+    # Exemple : Recherche d'une dépense par mot-clé
+    resultat = rechercher_depense(df, "Uber")
+    print("\n--- Recherche : dépenses contenant 'Uber' ---")
+    print(resultat)
+
+    # Exemple : Filtrage par période
+    df_filtre = filtrer_par_periode(df, "2024-05-01", "2024-05-05")
+    print("\n--- Dépenses entre 2024-05-01 et 2024-05-05 ---")
+    print(df_filtre)
+
+    # Exemple : Ajouter une nouvelle dépense
+    df = ajouter_depense(df, "2024-05-12", "Course Taxi", -50)
+    print("\n--- Nouvelle dépense ajoutée ---")
+    print(df.tail(3))  # Affiche les 3 dernières lignes
+
+    # Sauvegarde
+    enregistrer(df, chemin_csv)
